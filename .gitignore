@@ -1,0 +1,8 @@
+# Ignore bot config files  
+botconfig/config.json  
+
+
+#package lock
+package-lock.json
+package.json
+
