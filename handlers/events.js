@@ -11,12 +11,19 @@ module.exports = async (client) => {
       for (const file of event_files) {
         const event = require(`../events/${dir}/${file}`);
         let eventName = file.split(".")[0];
+
+        if (typeof event !== "function") {
+          console.error(`❌ Event "${eventName}" does not export a valid function.`);
+          table.addRow(eventName, "❌ Error");
+          continue;
+        }
+
         allevents.push(eventName);
         client.on(eventName, event.bind(null, client));
       }
     };
 
-    await ["client"].forEach((e) => load_dir(e));
+    await ["client", "guild"].forEach((e) => load_dir(e));
 
     // Add interactionCreate event for handling slash commands
     client.on("interactionCreate", async (interaction) => {
@@ -73,4 +80,3 @@ module.exports = async (client) => {
     console.log(String(e.stack).bgRed);
   }
 };
-
