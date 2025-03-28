@@ -79,7 +79,7 @@ module.exports = {
         await i.reply({ content: `${i.user} welcomes ${target} with ${randomEmoji} ${randomEmoji}`, allowedMentions: { users: [] } });
       });
 
-      await interaction.reply({ content: `Successfully welcomed ${target} ${newNickname ? `and set their nickname to "${newNickname}"` : ""}! 🎉`, ephemeral: true });
+      await interaction.reply({ content: `Successfully welcomed ${target} ${newNickname ? `and set their nickname to "${newNickname}"` : ""}! 🎉`, ephemeral: false });
 
     } catch (error) {
       console.error(error);

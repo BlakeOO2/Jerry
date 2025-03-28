@@ -1,0 +1,13 @@
+{
+  "id": "InitTest",
+  "type": "normal",
+  "name": "Title for normal",
+  "initial_message": "this is a test for the init message",
+  "allowed_roles": [
+    "1354988768943276224"
+  ],
+  "category_id": "1354894493953822932",
+  "created_by": "479720473941245962",
+  "created_at": "2025-03-28T19:11:27.753Z",
+  "followup_command": "tos"
+}

@@ -3,6 +3,8 @@ const Discord = require("discord.js");
 const colors = require("colors");
 const fs = require("fs");
 const { Collection } = require("discord.js");
+const db = require('./handlers/database.js');
+
 
 // Creating the Discord.js Client with necessary options
 const client = new Discord.Client({
@@ -10,8 +12,10 @@ const client = new Discord.Client({
     Discord.GatewayIntentBits.Guilds,
     Discord.GatewayIntentBits.GuildMessages,
     Discord.GatewayIntentBits.GuildMembers,
+    Discord.GatewayIntentBits.MessageContent,  // Add this
+
   ],
-  partials: ["MESSAGE", "CHANNEL", "REACTION"],
+  partials: ["MESSAGE", "CHANNEL", "REACTION", "USER"],
 });
 
 // Setting up collections for commands

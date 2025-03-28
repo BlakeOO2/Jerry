@@ -6,3 +6,5 @@ botconfig/config.json
 package-lock.json
 package.json
 
+database/snipeData.sqlite
+

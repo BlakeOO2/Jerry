@@ -1,0 +1,21 @@
+{
+  "id": "appTick",
+  "type": "application",
+  "name": "Apptick",
+  "initial_message": "Initla message thest",
+  "allowed_roles": [
+    "1354988768943276224"
+  ],
+  "category_id": "1354894493953822932",
+  "created_by": "479720473941245962",
+  "created_at": "2025-03-28T19:12:33.859Z",
+  "followup_command": "tos",
+  "questions": [
+    "Your question here",
+    "Your question here 2",
+    "Your question here 3",
+    "quest 4",
+    "quest 5",
+    "quest next page"
+  ]
+}
