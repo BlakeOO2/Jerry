@@ -1,5 +1,5 @@
 // slashcommands/tickets/listconfigs.js
-const { SlashCommandBuilder } = require('@discordjs/builders');
+const { SlashCommandBuilder } = require('discord.js');
 const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
