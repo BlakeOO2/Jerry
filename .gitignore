@@ -8,3 +8,4 @@ package.json
 
 database/snipeData.sqlite
 
+node_modules/
