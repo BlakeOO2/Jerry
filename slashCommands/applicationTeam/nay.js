@@ -11,7 +11,7 @@ module.exports = {
     .addStringOption(option =>
       option.setName("reason")
         .setDescription("The reason for the nay."))
-    .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers), // Requires Kick Members permission
+    .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers), // Requires Kick Members permission
   async execute(interaction) {
     const target = interaction.options.getUser("target");
     const reason = interaction.options.getString("reason");
@@ -35,7 +35,7 @@ module.exports = {
     }
 
     try {
-      await member.kick(reason);
+      await member.ban({ reason: reason });
       await interaction.reply(`Nayed ${target}! Reason: ${reason || "No reason provided"}`);
     } catch (error) {
       console.error(error);
