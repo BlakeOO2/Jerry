@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
 const WELCOME_CHANNEL_ID = "1342470117585453159"; // Replace with the actual welcome channel ID
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("yay")
@@ -81,8 +80,8 @@ module.exports = {
 
       await interaction.reply({ content: `Successfully welcomed ${target} ${newNickname ? `and set their nickname to "${newNickname}"` : ""}! 🎉`, ephemeral: false });
       await interaction.channel.send({
-        content: `${target.user}, whenever you get on the game and are ready to join the realm, DM <@${"1216196243697565731"}> on here, and they will generate you a realm code that expires in two minutes.\n\n` +
-            `After you're in, ask **Ash, Blake>, Midnite_Walrus, or Pattty_Brown** for a tour around and keep your eyes open for land you like. Any unfenced/unmarked land is free to claim, but do mark your land because we tell everyone the same :p\n\n` +
+        content: `${target}, whenever you get on the game and are ready to join the realm, DM <@${"1216196243697565731"}> on here, and they will generate you a realm code that expires in two minutes.\n\n` +
+            `After you're in, ask **Ash, Blake, Midnite_Walrus, or Pattty_Brown** for a tour around and keep your eyes open for land you like. Any unfenced/unmarked land is free to claim, but do mark your land because we tell everyone the same :p\n\n` +
             "Please build your first house close to everyone, but after that, build wherever you want.\n\n" +
             `Create a ticket if you need anything at all.\n\n` +
             "**Please follow the rules and be nice to everyone.**\n\n" +
