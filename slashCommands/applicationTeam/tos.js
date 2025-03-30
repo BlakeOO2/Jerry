@@ -44,15 +44,7 @@ module.exports = {
                         allowedMentions: { users: [] }
                     });
 
-                    await interaction.channel.send({
-                        content: `${i.user}, whenever you get on the game and are ready to join the realm, DM <@${"1216196243697565731"}> on here, and they will generate you a realm code that expires in two minutes.\n\n` +
-                            `After you're in, ask **<@${"1216196243697565731"}>, <@${"479720473941245962"}>, <@${"1345624006895599676"}>, or <@${"1335382482593513489"}>** for a tour around and keep your eyes open for land you like. Any unfenced/unmarked land is free to claim, but do mark your land because we tell everyone the same :p\n\n` +
-                            "Please build your first house close to everyone, but after that, build wherever you want.\n\n" +
-                            `DM <@${"1216196243697565731"}> or <@${"479720473941245962"}> if you need anything at all.\n\n` +
-                            "**Please follow the rules and be nice to everyone.**\n\n" +
-                            "Some people talk sh* and some people don't, just know your audience and be respectful.\n\n" +
-                            "Have fun!! We can't wait to see your builds around :p"
-                    });
+                    
                 } else if (i.customId === "tos_deny") {
                     await i.reply({
                         content: `${i.user} has **denied** the Terms of Service ❌`,
