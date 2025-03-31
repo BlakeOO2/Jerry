@@ -55,20 +55,30 @@ module.exports = async (client, interaction) => {
     try {
         // Handle Slash Commands
         if (interaction.isChatInputCommand()) {
-            const command = client.commands.get(interaction.commandName);
+            const command = client.slashCommands.get(interaction.commandName);
             if (!command) return;
-
+    
             try {
                 await command.execute(interaction);
             } catch (error) {
                 console.error('Slash Command Error:', error);
-                if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
-                } else {
-                    await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
+                try {
+                    const reply = {
+                        content: 'There was an error while executing this command!',
+                        ephemeral: true
+                    };
+                    
+                    if (interaction.deferred || interaction.replied) {
+                        await interaction.followUp(reply);
+                    } else {
+                        await interaction.reply(reply);
+                    }
+                } catch (err) {
+                    console.error('Error handling command error:', err);
                 }
             }
         }
+    
 
         // Handle Button Interactions
         if (interaction.isButton()) {

@@ -25,22 +25,22 @@ module.exports = async (client) => {
 
     await ["client", "guild"].forEach((e) => load_dir(e));
 
-    // Add interactionCreate event for handling slash commands
-    client.on("interactionCreate", async (interaction) => {
-      if (!interaction.isCommand()) return;
+    // // Add interactionCreate event for handling slash commands
+    // client.on("interactionCreate", async (interaction) => {
+    //   if (!interaction.isCommand()) return;
 
-      const command = client.slashCommands.get(interaction.commandName);
-      if (!command) return;
+    //   const command = client.slashCommands.get(interaction.commandName);
+    //   if (!command) return;
 
-      try {
-        await command.execute(interaction);
-      } catch (error) {
-        console.error(error);
-        await interaction.reply({ content: "There was an error executing this command.", ephemeral: true });
-      }
-    });
+    //   try {
+    //     await command.execute(interaction);
+    //   } catch (error) {
+    //     console.error(error);
+    //     await interaction.reply({ content: "There was an error executing this command.", ephemeral: true });
+    //   }
+    // });
 
-    allevents.push("interactionCreate"); // Log the interaction event
+    // allevents.push("interactionCreate"); // Log the interaction event
 
     for (let i = 0; i < allevents.length; i++) {
       try {

@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require("discord.js");
 const WELCOME_CHANNEL_ID = "1342470117585453159"; // Replace with the actual welcome channel ID
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("yay")
