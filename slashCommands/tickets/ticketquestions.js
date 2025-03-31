@@ -1,4 +1,3 @@
-// slashcommands/tickets/questions.js
 const { SlashCommandBuilder } = require('discord.js');
 const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
@@ -19,7 +18,31 @@ module.exports = {
                 .addStringOption(option =>
                     option.setName('question')
                         .setDescription('The question to add')
-                        .setRequired(true)))
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option.setName('placeholder')
+                        .setDescription('Placeholder text for the answer field')
+                        .setRequired(false))
+                .addIntegerOption(option =>
+                    option.setName('style')
+                        .setDescription('Text input style')
+                        .addChoices(
+                            { name: 'Short (single line)', value: 1 },
+                            { name: 'Paragraph (multiple lines)', value: 2 }
+                        )
+                        .setRequired(false))
+                .addIntegerOption(option =>
+                    option.setName('min_length')
+                        .setDescription('Minimum length of the answer')
+                        .setMinValue(0)
+                        .setMaxValue(4000)
+                        .setRequired(false))
+                .addIntegerOption(option =>
+                    option.setName('max_length')
+                        .setDescription('Maximum length of the answer')
+                        .setMinValue(1)
+                        .setMaxValue(4000)
+                        .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
                 .setName('remove')
@@ -76,12 +99,30 @@ module.exports = {
 
         switch (subcommand) {
             case 'add':
-                const newQuestion = interaction.options.getString('question');
+                const newQuestion = {
+                    question: interaction.options.getString('question'),
+                    placeholder: interaction.options.getString('placeholder') || '',
+                    style: interaction.options.getInteger('style') || 2, // Default to paragraph
+                    minLength: interaction.options.getInteger('min_length') || 1,
+                    maxLength: interaction.options.getInteger('max_length') || 4000
+                };
+
                 config.questions.push(newQuestion);
                 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-                
+
+                const addEmbed = new EmbedBuilder()
+                    .setColor('#0099ff')
+                    .setTitle('Question Added')
+                    .addFields(
+                        { name: 'Question', value: newQuestion.question },
+                        { name: 'Placeholder', value: newQuestion.placeholder || 'None' },
+                        { name: 'Style', value: newQuestion.style === 1 ? 'Short' : 'Paragraph' },
+                        { name: 'Min Length', value: newQuestion.minLength.toString() },
+                        { name: 'Max Length', value: newQuestion.maxLength.toString() }
+                    );
+
                 await interaction.reply({
-                    content: `Question added! Total questions: ${config.questions.length}`,
+                    embeds: [addEmbed],
                     ephemeral: true
                 });
                 break;
@@ -96,31 +137,45 @@ module.exports = {
                     });
                 }
 
-                config.questions.splice(questionNumber - 1, 1);
+                const removedQuestion = config.questions.splice(questionNumber - 1, 1)[0];
                 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
                 
+                const removeEmbed = new EmbedBuilder()
+                    .setColor('#ff0000')
+                    .setTitle('Question Removed')
+                    .addFields(
+                        { name: 'Removed Question', value: removedQuestion.question },
+                        { name: 'Total Questions Remaining', value: config.questions.length.toString() }
+                    );
+
                 await interaction.reply({
-                    content: `Question removed! Total questions: ${config.questions.length}`,
+                    embeds: [removeEmbed],
                     ephemeral: true
                 });
                 break;
 
             case 'list':
-                const embed = new EmbedBuilder()
+                const listEmbed = new EmbedBuilder()
                     .setColor('#0099ff')
                     .setTitle('Application Questions')
                     .setDescription('Here are all the questions for this application:');
-
+                
                 if (config.questions.length === 0) {
-                    embed.addFields({ name: 'No Questions', value: 'This application has no questions yet.' });
+                    listEmbed.addFields({ name: 'No Questions', value: 'This application has no questions yet.' });
                 } else {
                     config.questions.forEach((question, index) => {
-                        embed.addFields({ name: `Question ${index + 1}`, value: question });
+                        listEmbed.addFields({ 
+                            name: `Question ${index + 1}`, 
+                            value: `**Question:** ${question.question}\n` +
+                                   `**Placeholder:** ${question.placeholder || 'None'}\n` +
+                                   `**Style:** ${question.style === 1 ? 'Short' : 'Paragraph'}\n` +
+                                   `**Length:** ${question.minLength}-${question.maxLength} characters`
+                        });
                     });
                 }
-
+                
                 await interaction.reply({
-                    embeds: [embed],
+                    embeds: [listEmbed],
                     ephemeral: true
                 });
                 break;

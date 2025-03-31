@@ -10,3 +10,4 @@ database/snipeData.sqlite
 database/inviteTracker.sqlite
 
 node_modules/
+data/tickets/

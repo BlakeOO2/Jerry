@@ -325,13 +325,36 @@ async function showApplicationForm(interaction, config, page, startIndex) {
             .setCustomId(`application_${config.id}_${page}`)
             .setTitle(`Application Form (Part ${page} of ${Math.ceil(config.questions.length / 5)})`);
 
-        questionsForThisPage.forEach((question, index) => {
+        questionsForThisPage.forEach((questionData, index) => {
+            // Handle both old format (string) and new format (object)
+            const question = typeof questionData === 'string' 
+                ? { 
+                    question: questionData,
+                    style: TextInputStyle.Paragraph,
+                    placeholder: '',
+                    minLength: 1,
+                    maxLength: 1000
+                } 
+                : {
+                    question: questionData.question,
+                    style: questionData.style === 1 ? TextInputStyle.Short : TextInputStyle.Paragraph,
+                    placeholder: questionData.placeholder || '',
+                    minLength: questionData.minLength || 1,
+                    maxLength: questionData.maxLength || 1000
+                };
+
             const textInput = new TextInputBuilder()
                 .setCustomId(`question_${startIndex + index}`)
-                .setLabel(question.substring(0, 45))
-                .setStyle(TextInputStyle.Paragraph)
+                .setLabel(question.question.substring(0, 45))
+                .setStyle(question.style)
                 .setRequired(true)
-                .setMaxLength(1000);
+                .setMinLength(question.minLength)
+                .setMaxLength(question.maxLength);
+
+            // Add placeholder if it exists
+            if (question.placeholder) {
+                textInput.setPlaceholder(question.placeholder);
+            }
 
             modal.addComponents(new ActionRowBuilder().addComponents(textInput));
         });
@@ -342,6 +365,7 @@ async function showApplicationForm(interaction, config, page, startIndex) {
         throw error;
     }
 }
+
 
 async function createApplicationTicket(interaction, config, responses) {
     try {
@@ -378,7 +402,12 @@ async function createApplicationTicket(interaction, config, responses) {
             .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
             .setTimestamp();
 
-        config.questions.forEach((question, index) => {
+        config.questions.forEach((questionData, index) => {
+            // Handle both old format (string) and new format (object)
+            const question = typeof questionData === 'string' 
+                ? questionData 
+                : questionData.question;
+
             responseEmbed.addFields({
                 name: question,
                 value: responses[index] || 'No answer provided'
