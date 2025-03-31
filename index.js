@@ -2,7 +2,7 @@
 const Discord = require("discord.js");
 const colors = require("colors");
 const fs = require("fs");
-const { Collection } = require("discord.js");
+const { Collection, GatewayIntentBits } = require("discord.js");
 const db = require('./handlers/database.js');
 
 
@@ -16,7 +16,7 @@ const client = new Discord.Client({
     Discord.GatewayIntentBits.MessageContent,  // Add this
 
   ],
-  partials: ["MESSAGE", "CHANNEL", "REACTION", "USER"],
+  partials: ["MESSAGE", "CHANNEL", "REACTION", "USER", "GuildMember"],
 });
 
 // Setting up collections for commands
