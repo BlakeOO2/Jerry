@@ -40,10 +40,10 @@ module.exports = {
       const welcomeMessages = [
         `🎉 Welcome aboard, ${target}! We're so happy to have you here!`,
         `🌟 Cheers, ${target}! You've officially joined the community!`,
-        `🎊 Hooray! ${target} is now part of the crew! Make yourself at home!`,
-        `🚀 Welcome to the family, ${target}! Buckle up for an amazing journey!`,
-        `✨ The wait is over! ${target} has officially arrived! Let's give them a warm welcome!`,
-        `💫 Everyone, please welcome ${target} with open arms! We're glad you're here!`
+        `👾 Hooray! ${target} is now part of the crew! Make yourself at home!`,
+        `🚀 Welcome to the gang, ${target}! Great to have you around!`,
+        `✨ The wait is over! ${target} has officially arrived!`,
+        `💫 Everyone, please welcome ${target}! We're glad you're here!`
       ];
 
       const randomMessage = welcomeMessages[Math.floor(Math.random() * welcomeMessages.length)];
