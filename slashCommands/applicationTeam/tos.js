@@ -40,7 +40,7 @@ module.exports = {
             collector.on("collect", async i => {
                 if (i.customId === "tos_accept") {
                     await i.reply({
-                        content: `${i.user} has **accepted** the Terms of Service ✅\n The Application team will be with you shortly to review your application.`,
+                        content: `${i.user} has **accepted** the Terms of Service ✅\n The Application team will review your application shortly.`,
                         allowedMentions: { users: [] }
                     });
 
