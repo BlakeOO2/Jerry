@@ -25,8 +25,8 @@ module.exports = {
         try {
             // Convert both IDs to strings for comparison
             const userId = interaction.user.id;
-            console.log('User ID:', userId); // Debug log
-            console.log('Blake ID:', Blake);  // Debug log
+            
+            
 
             if (userId !== Blake) {
                 await interaction.reply({
@@ -39,7 +39,8 @@ module.exports = {
             const message = interaction.options.getString('message');
             const channel = interaction.options.getChannel('channel') || interaction.channel;
             const useEmbed = interaction.options.getBoolean('embed') || false;
-
+            console.log('User ID:', userId); // Debug log
+            console.log('Tried to say:', message); // Debug log
             if (useEmbed) {
                 const embed = new EmbedBuilder()
                     .setDescription(message)
