@@ -2,22 +2,34 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-// Path to SQLite database
-const dbPath = path.join(__dirname, '../database/snipeData.sqlite');
-console.log('Database path:', dbPath);
+// Paths to different SQLite databases
+const snipeDbPath = path.join(__dirname, '../database/snipeData.sqlite');
+const inviteDbPath = path.join(__dirname, '../database/inviteTracker.sqlite');
 
-// Connect to the database
-const db = new sqlite3.Database(dbPath, (err) => {
+console.log('Snipe Database path:', snipeDbPath);
+console.log('Invite Database path:', inviteDbPath);
+
+// Connect to snipe database
+const snipeDb = new sqlite3.Database(snipeDbPath, (err) => {
     if (err) {
-        console.error('❌ Error connecting to database:', err.message);
+        console.error('❌ Error connecting to snipe database:', err.message);
     } else {
-        console.log(`✅ Connected to database: ${dbPath}`);
+        console.log(`✅ Connected to snipe database: ${snipeDbPath}`);
     }
 });
 
-// Create table
-db.serialize(() => {
-    db.run(`
+// Connect to invite database
+const inviteDb = new sqlite3.Database(inviteDbPath, (err) => {
+    if (err) {
+        console.error('❌ Error connecting to invite database:', err.message);
+    } else {
+        console.log(`✅ Connected to invite database: ${inviteDbPath}`);
+    }
+});
+
+// Create snipe table
+snipeDb.serialize(() => {
+    snipeDb.run(`
         CREATE TABLE IF NOT EXISTS snipeData (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             channelId TEXT,
@@ -29,17 +41,55 @@ db.serialize(() => {
         )
     `, (err) => {
         if (err) {
-            console.error('❌ Error creating table:', err.message);
+            console.error('❌ Error creating snipe table:', err.message);
         } else {
             console.log('✅ Table "snipeData" is ready.');
         }
     });
 });
 
-// Function to save a deleted message
+// Create invite tables
+inviteDb.serialize(() => {
+    // Invites table
+    inviteDb.run(`
+        CREATE TABLE IF NOT EXISTS invites (
+            userId TEXT PRIMARY KEY,
+            username TEXT,
+            regularInvites INTEGER DEFAULT 0,
+            leftInvites INTEGER DEFAULT 0,
+            fakeInvites INTEGER DEFAULT 0,
+            bonusInvites INTEGER DEFAULT 0,
+            totalInvites INTEGER DEFAULT 0
+        )
+    `, (err) => {
+        if (err) {
+            console.error('❌ Error creating invites table:', err.message);
+        } else {
+            console.log('✅ Table "invites" is ready.');
+        }
+    });
+
+    // Invite tracking table
+    inviteDb.run(`
+        CREATE TABLE IF NOT EXISTS inviteTracking (
+            invitedId TEXT PRIMARY KEY,
+            inviterId TEXT,
+            timestamp INTEGER,
+            FOREIGN KEY(inviterId) REFERENCES invites(userId)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('❌ Error creating inviteTracking table:', err.message);
+        } else {
+            console.log('✅ Table "inviteTracking" is ready.');
+        }
+    });
+});
+
+// Snipe Functions
 async function saveDeletedMessage(channelId, userId, username, message, image, timestamp) {
     return new Promise((resolve, reject) => {
-        const stmt = db.prepare(`
+        const stmt = snipeDb.prepare(`
             INSERT INTO snipeData (channelId, userId, username, message, image, timestamp)
             VALUES (?, ?, ?, ?, ?, ?)
         `);
@@ -58,7 +108,6 @@ async function saveDeletedMessage(channelId, userId, username, message, image, t
     });
 }
 
-// Function to get deleted messages
 async function getDeletedMessages(channelId, userId = null, limit = 1, offset = 0) {
     return new Promise((resolve, reject) => {
         console.log('Fetching messages with params:', { channelId, userId, limit, offset });
@@ -73,9 +122,7 @@ async function getDeletedMessages(channelId, userId = null, limit = 1, offset = 
 
         query += ' ORDER BY timestamp DESC';
 
-        console.log('Executing query:', query, 'with params:', params);
-
-        db.all(query, params, (err, rows) => {
+        snipeDb.all(query, params, (err, rows) => {
             if (err) {
                 console.error('❌ Error fetching from database:', err);
                 reject(err);
@@ -89,9 +136,107 @@ async function getDeletedMessages(channelId, userId = null, limit = 1, offset = 
     });
 }
 
+// Invite Functions
+async function updateInvites(userId, username, type, amount) {
+    return new Promise((resolve, reject) => {
+        inviteDb.run(`
+            INSERT INTO invites (userId, username, ${type}Invites, totalInvites)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(userId) DO UPDATE SET
+            ${type}Invites = ${type}Invites + ?,
+            totalInvites = totalInvites + ?,
+            username = ?
+        `, [userId, username, amount, amount, amount, amount, username], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes);
+        });
+    });
+}
+
+async function getInvites(userId) {
+    return new Promise((resolve, reject) => {
+        inviteDb.get('SELECT * FROM invites WHERE userId = ?', [userId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row || {
+                regularInvites: 0,
+                leftInvites: 0,
+                fakeInvites: 0,
+                bonusInvites: 0,
+                totalInvites: 0
+            });
+        });
+    });
+}
+
+async function getLeaderboard(page = 1, limit = 10) {
+    return new Promise((resolve, reject) => {
+        const offset = (page - 1) * limit;
+        inviteDb.all(`
+            SELECT *
+            FROM invites
+            ORDER BY totalInvites DESC
+            LIMIT ? OFFSET ?
+        `, [limit, offset], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+async function trackInvite(invitedId, inviterId) {
+    return new Promise((resolve, reject) => {
+        inviteDb.run(`
+            INSERT INTO inviteTracking (invitedId, inviterId, timestamp)
+            VALUES (?, ?, ?)
+            ON CONFLICT(invitedId) DO UPDATE SET
+            inviterId = ?,
+            timestamp = ?
+        `, [invitedId, inviterId, Date.now(), inviterId, Date.now()], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes);
+        });
+    });
+}
+
+async function getInviter(invitedId) {
+    return new Promise((resolve, reject) => {
+        inviteDb.get('SELECT inviterId FROM inviteTracking WHERE invitedId = ?', [invitedId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row?.inviterId);
+        });
+    });
+}
+async function resetInvites(userId) {
+    return new Promise((resolve, reject) => {
+        inviteDb.run(`
+            UPDATE invites 
+            SET regularInvites = 0, 
+                leftInvites = 0, 
+                fakeInvites = 0, 
+                bonusInvites = 0, 
+                totalInvites = 0 
+            WHERE userId = ?
+        `, [userId], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes);
+        });
+    });
+}
+
+
+
 // Export all functions
 module.exports = {
-    db,
+    snipeDb,
+    inviteDb,
+    // Snipe exports
     saveDeletedMessage,
-    getDeletedMessages
+    getDeletedMessages,
+    // Invite tracking exports
+    updateInvites,
+    getInvites,
+    getLeaderboard,
+    trackInvite,
+    getInviter,
+    resetInvites
 };

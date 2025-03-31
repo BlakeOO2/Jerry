@@ -7,5 +7,6 @@ package-lock.json
 package.json
 
 database/snipeData.sqlite
+database/inviteTracker.sqlite
 
 node_modules/
