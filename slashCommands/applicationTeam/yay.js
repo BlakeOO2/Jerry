@@ -76,7 +76,7 @@ module.exports = {
       const collector = message.createMessageComponentCollector({ filter, time: 7_200_000 });
 
       collector.on("collect", async i => {
-        await i.reply({ content: `${i.user} welcomes ${target} with ${randomEmoji} ${randomEmoji}`, allowedMentions: { users: [] } });
+        await i.reply({ content: `${i.user} said welcome to ${target} with ${randomEmoji} ${randomEmoji}`, allowedMentions: { users: [] } });
       });
 
       await interaction.reply({ content: `Successfully welcomed ${target} ${newNickname ? `and set their nickname to "${newNickname}"` : ""}! 🎉`, ephemeral: false });
