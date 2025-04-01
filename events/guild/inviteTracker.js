@@ -1,6 +1,6 @@
 const { Events } = require('discord.js');
 const { updateInvites, trackInvite, getInviter } = require('../../handlers/database.js'); // Adjust path as needed
-
+ 
 
 
 module.exports = async (client) => {
