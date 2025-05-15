@@ -8,6 +8,7 @@ package.json
 
 database/snipeData.sqlite
 database/inviteTracker.sqlite
+database/suggestions.sqlite
 
 node_modules/
 data/tickets/

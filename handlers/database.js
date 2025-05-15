@@ -18,6 +18,15 @@ const snipeDb = new sqlite3.Database(snipeDbPath, (err) => {
     }
 });
 
+// Add this with your other database connections
+const suggestionDb = new sqlite3.Database(path.join(__dirname, '../database/suggestions.sqlite'), (err) => {
+    if (err) {
+        console.error('❌ Error connecting to suggestion database:', err.message);
+    } else {
+        console.log('✅ Connected to suggestion database');
+    }
+});
+
 // Connect to invite database
 const inviteDb = new sqlite3.Database(inviteDbPath, (err) => {
     if (err) {
@@ -92,6 +101,149 @@ inviteDb.serialize(() => {
         }
     });
 });
+// Add this to your database initialization
+suggestionDb.serialize(() => {
+    suggestionDb.run(`
+        CREATE TABLE IF NOT EXISTS suggestions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guildId TEXT,
+            channelId TEXT,
+            messageId TEXT,
+            authorId TEXT,
+            content TEXT,
+            status TEXT DEFAULT 'pending',
+            threadId TEXT,
+            upvotes INTEGER DEFAULT 0,
+            downvotes INTEGER DEFAULT 0,
+            threadMessages INTEGER DEFAULT 0,
+            decidedBy TEXT,
+            reason TEXT
+        )
+    `);
+    suggestionDb.run(`
+        CREATE TABLE IF NOT EXISTS suggestion_votes (
+            suggestion_id INTEGER,
+            user_id TEXT,
+            vote_type TEXT,
+            PRIMARY KEY (suggestion_id, user_id),
+            FOREIGN KEY (suggestion_id) REFERENCES suggestions(id)
+        )
+    `);
+});
+
+// Add these functions to your exports
+async function createSuggestion(guildId, channelId, messageId, authorId, content) {
+    return new Promise((resolve, reject) => {
+        suggestionDb.run(
+            'INSERT INTO suggestions (guildId, channelId, messageId, authorId, content) VALUES (?, ?, ?, ?, ?)',
+            [guildId, channelId, messageId, authorId, content],
+            function(err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            }
+        );
+    });
+}
+
+async function updateSuggestionStatus(id, status, decidedBy = null, reason = null) {
+    return new Promise((resolve, reject) => {
+        suggestionDb.run(
+            'UPDATE suggestions SET status = ?, decidedBy = ?, reason = ? WHERE id = ?',
+            [status, decidedBy, reason, id],
+            function(err) {
+                if (err) reject(err);
+                else resolve(this.changes);
+            }
+        );
+    });
+}
+
+async function getSuggestion(id) {
+    return new Promise((resolve, reject) => {
+        suggestionDb.get('SELECT * FROM suggestions WHERE id = ?', [id], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+}
+async function toggleVote(suggestionId, userId, voteType) {
+    return new Promise((resolve, reject) => {
+        suggestionDb.serialize(() => {
+            // Check if user has already voted
+            suggestionDb.get(
+                'SELECT * FROM suggestion_votes WHERE suggestion_id = ? AND user_id = ?',
+                [suggestionId, userId],
+                (err, row) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+
+                    if (row) {
+                        // User has already voted
+                        if (row.vote_type === voteType) {
+                            // Remove vote if clicking same button
+                            suggestionDb.run(
+                                'DELETE FROM suggestion_votes WHERE suggestion_id = ? AND user_id = ?',
+                                [suggestionId, userId]
+                            );
+                            resolve({ action: 'removed', previousVote: voteType });
+                        } else {
+                            // Change vote if clicking different button
+                            suggestionDb.run(
+                                'UPDATE suggestion_votes SET vote_type = ? WHERE suggestion_id = ? AND user_id = ?',
+                                [voteType, suggestionId, userId]
+                            );
+                            resolve({ action: 'changed', previousVote: row.vote_type });
+                        }
+                    } else {
+                        // Add new vote
+                        suggestionDb.run(
+                            'INSERT INTO suggestion_votes (suggestion_id, user_id, vote_type) VALUES (?, ?, ?)',
+                            [suggestionId, userId, voteType]
+                        );
+                        resolve({ action: 'added' });
+                    }
+                }
+            );
+        });
+    });
+}
+
+async function getVoteCounts(suggestionId) {
+    return new Promise((resolve, reject) => {
+        suggestionDb.get(
+            `SELECT 
+                SUM(CASE WHEN vote_type = 'upvote' THEN 1 ELSE 0 END) as upvotes,
+                SUM(CASE WHEN vote_type = 'downvote' THEN 1 ELSE 0 END) as downvotes
+            FROM suggestion_votes 
+            WHERE suggestion_id = ?`,
+            [suggestionId],
+            (err, row) => {
+                if (err) reject(err);
+                else resolve({
+                    upvotes: row?.upvotes || 0,
+                    downvotes: row?.downvotes || 0
+                });
+            }
+        );
+    });
+}
+
+async function updateThreadCount(suggestionId, count) {
+    return new Promise((resolve, reject) => {
+        suggestionDb.run(
+            'UPDATE suggestions SET threadMessages = ? WHERE id = ?',
+            [count, suggestionId],
+            function(err) {
+                if (err) reject(err);
+                else resolve(this.changes);
+            }
+        );
+    });
+}
+
+
 
 // Snipe Functions
 async function saveDeletedMessage(channelId, userId, username, message, image, timestamp) {
@@ -243,5 +395,11 @@ module.exports = {
     getLeaderboard,
     trackInvite,
     getInviter,
-    resetInvites
+    resetInvites,
+    createSuggestion,
+    updateSuggestionStatus,
+    getSuggestion,
+    toggleVote,
+    getVoteCounts,
+    updateThreadCount
 };

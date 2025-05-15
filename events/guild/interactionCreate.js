@@ -161,6 +161,75 @@ module.exports = async (client, interaction) => {
                     ephemeral: true
                 });
             }
+            if (customId.startsWith('suggestion_')) {
+        const parts = customId.split('_');
+        const action = parts[1];
+        const message = interaction.message;
+        const embed = message.embeds[0];
+        
+        try {
+            // Get suggestion ID from footer
+            const footerText = embed.footer.text;
+            const suggestionId = parseInt(footerText.match(/ID: (\d+)/)[1]);
+
+            switch (action) {
+                case 'upvote':
+                case 'downvote': {
+                    // Handle voting
+                    const result = await toggleVote(suggestionId, interaction.user.id, action);
+                    const counts = await getVoteCounts(suggestionId);
+                    
+                    // Get current components
+                    const components = message.components[0].components;
+                    
+                    // Update button labels
+                    components[0].setLabel(counts.upvotes.toString());    // Upvote button
+                    components[2].setLabel(counts.downvotes.toString());  // Downvote button
+                    
+                    // Update message with new counts
+                    await message.edit({
+                        embeds: [embed],
+                        components: [new ActionRowBuilder().addComponents(components)]
+                    });
+
+                    // Acknowledge the interaction
+                    await interaction.deferUpdate();
+                    break;
+                }
+                case 'thread': {
+                    // Get thread message count
+                    const thread = message.thread;
+                    if (thread) {
+                        const messageCount = (await thread.messages.fetch()).size - 1; // -1 to exclude the initial message
+                        
+                        // Update thread count in database
+                        await updateThreadCount(suggestionId, messageCount);
+                        
+                        // Update button label
+                        const components = message.components[0].components;
+                        components[1].setLabel(messageCount.toString());  // Thread counter button
+                        
+                        await message.edit({
+                            embeds: [embed],
+                            components: [new ActionRowBuilder().addComponents(components)]
+                        });
+                    }
+                    
+                    await interaction.deferUpdate();
+                    break;
+                }
+            }
+        } catch (error) {
+            console.error('Error handling suggestion button:', error);
+            await interaction.reply({
+                content: 'There was an error processing your interaction.',
+                ephemeral: true
+            });
+        }
+    }
+
+
+
         }
 
         // Handle Modal Submissions
