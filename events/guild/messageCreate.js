@@ -3,9 +3,16 @@ const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('
 const { createSuggestion } = require('../../handlers/database.js');
 
 module.exports = async (client, message) => {
+    // Ignore bot messages
+    if (message.author.bot) return;
+
+    // Ignore messages in threads
+    if (message.channel.isThread()) return;
+
     // Check if message is in a suggestion channel
     // You'll need to implement channel checking logic
-    if (message.author.bot) return;
+    // For example, checking channel name or storing suggestion channels in database
+    if (!message.channel.name.toLowerCase().includes('suggestion')) return;
 
     try {
         // Create embed
@@ -22,6 +29,7 @@ module.exports = async (client, message) => {
         const upvoteButton = new ButtonBuilder()
             .setCustomId('suggestion_upvote')
             .setEmoji('👍')
+            .setLabel('0')
             .setStyle(ButtonStyle.Success);
 
         const threadButton = new ButtonBuilder()
@@ -33,6 +41,7 @@ module.exports = async (client, message) => {
         const downvoteButton = new ButtonBuilder()
             .setCustomId('suggestion_downvote')
             .setEmoji('👎')
+            .setLabel('0')
             .setStyle(ButtonStyle.Danger);
 
         const row = new ActionRowBuilder()

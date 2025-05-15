@@ -12,6 +12,8 @@ const {
 const fs = require('fs');
 const path = require('path');
 const discordTranscripts = require('discord-html-transcripts');
+const { toggleVote, getVoteCounts, updateThreadCount } = require('../../handlers/database.js');
+const { ActionRowBuilder } = require('discord.js');
 
 // Add this right after your require statements
 // Create necessary directories if they don't exist
