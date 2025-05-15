@@ -26,6 +26,13 @@ const inviteDb = new sqlite3.Database(inviteDbPath, (err) => {
         console.log(`✅ Connected to invite database: ${inviteDbPath}`);
     }
 });
+inviteDb.get("SELECT name FROM sqlite_master WHERE type='table' AND name='invites'", (err, row) => {
+    if (err) {
+        console.error('Error checking invites table:', err);
+    } else {
+        console.log('Invites table exists:', !!row);
+    }
+});
 
 // Create snipe table
 snipeDb.serialize(() => {
@@ -186,12 +193,9 @@ async function getLeaderboard(page = 1, limit = 10) {
 async function trackInvite(invitedId, inviterId) {
     return new Promise((resolve, reject) => {
         inviteDb.run(`
-            INSERT INTO inviteTracking (invitedId, inviterId, timestamp)
+            INSERT OR REPLACE INTO inviteTracking (invitedId, inviterId, timestamp)
             VALUES (?, ?, ?)
-            ON CONFLICT(invitedId) DO UPDATE SET
-            inviterId = ?,
-            timestamp = ?
-        `, [invitedId, inviterId, Date.now(), inviterId, Date.now()], function(err) {
+        `, [invitedId, inviterId, Date.now()], function(err) {
             if (err) reject(err);
             else resolve(this.changes);
         });
@@ -206,6 +210,7 @@ async function getInviter(invitedId) {
         });
     });
 }
+
 async function resetInvites(userId) {
     return new Promise((resolve, reject) => {
         inviteDb.run(`
