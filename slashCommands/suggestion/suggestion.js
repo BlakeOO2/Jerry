@@ -1,6 +1,11 @@
 // slashcommands/suggestions/suggestion.js
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
-const { updateSuggestionStatus, getSuggestion } = require('../../handlers/database.js');
+const { 
+    updateSuggestionStatus, 
+    getSuggestion, 
+    addSuggestionChannel,
+    removeSuggestionChannel 
+} = require('../../handlers/database.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -32,18 +37,30 @@ module.exports = {
                         .setRequired(true))
                 .addStringOption(option =>
                     option.setName('reason')
-                        .setDescription('Reason for denying'))),
+                        .setDescription('Reason for denying')))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('stop')
+                .setDescription('Disable suggestions in this channel')),
 
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
 
         switch (subcommand) {
             case 'start': {
-                // Store channel ID in database or config
-                await interaction.reply({
-                    content: 'Suggestions are now enabled in this channel!',
-                    ephemeral: true
-                });
+                try {
+                    await addSuggestionChannel(interaction.guildId, interaction.channelId);
+                    await interaction.reply({
+                        content: 'Suggestions are now enabled in this channel!',
+                        ephemeral: true
+                    });
+                } catch (error) {
+                    console.error('Error enabling suggestions:', error);
+                    await interaction.reply({
+                        content: 'There was an error enabling suggestions in this channel.',
+                        ephemeral: true
+                    });
+                }
                 break;
             }
 
@@ -92,6 +109,22 @@ module.exports = {
                     console.error(error);
                     await interaction.reply({
                         content: 'There was an error processing the suggestion.',
+                        ephemeral: true
+                    });
+                }
+                break;
+            }
+            case 'stop': {
+                try {
+                    await removeSuggestionChannel(interaction.guildId, interaction.channelId);
+                    await interaction.reply({
+                        content: 'Suggestions have been disabled in this channel!',
+                        ephemeral: true
+                    });
+                } catch (error) {
+                    console.error('Error disabling suggestions:', error);
+                    await interaction.reply({
+                        content: 'There was an error disabling suggestions in this channel.',
                         ephemeral: true
                     });
                 }

@@ -1,19 +1,18 @@
 // File: events/guild/interactionCreate.js
-const { 
-    ModalBuilder, 
-    TextInputBuilder, 
-    TextInputStyle, 
-    ActionRowBuilder, 
-    EmbedBuilder, 
-    ButtonBuilder, 
+const {
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    ActionRowBuilder,
+    EmbedBuilder,
+    ButtonBuilder,
     ButtonStyle,
-    Collection 
+    Collection
 } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const discordTranscripts = require('discord-html-transcripts');
 const { toggleVote, getVoteCounts, updateThreadCount } = require('../../handlers/database.js');
-const { ActionRowBuilder } = require('discord.js');
 
 // Add this right after your require statements
 // Create necessary directories if they don't exist
@@ -59,7 +58,7 @@ module.exports = async (client, interaction) => {
         if (interaction.isChatInputCommand()) {
             const command = client.slashCommands.get(interaction.commandName);
             if (!command) return;
-    
+
             try {
                 await command.execute(interaction);
             } catch (error) {
@@ -69,7 +68,7 @@ module.exports = async (client, interaction) => {
                         content: 'There was an error while executing this command!',
                         ephemeral: true
                     };
-                    
+
                     if (interaction.deferred || interaction.replied) {
                         await interaction.followUp(reply);
                     } else {
@@ -80,7 +79,7 @@ module.exports = async (client, interaction) => {
                 }
             }
         }
-    
+
 
         // Handle Button Interactions
         if (interaction.isButton()) {
@@ -100,31 +99,31 @@ module.exports = async (client, interaction) => {
                 try {
                     const ticketId = customId.split('_').slice(2).join('_'); // This will get the full ID including application_id
                     const configPath = path.join(__dirname, '../../data/tickets', `${ticketId}.json`);
-                    
+
                     // Use safelyReadJson instead of direct file reading
                     const config = safelyReadJson(configPath);
-            
+
                     if (!config) {
                         return interaction.reply({
                             content: `Ticket configuration not found! Please create a ticket configuration first using "/createticket id:${ticketId}"`,
                             ephemeral: true
                         });
                     }
-            
+
                     if (!config.category_id) {
                         return interaction.reply({
                             content: 'Invalid ticket configuration! Category ID is missing.',
                             ephemeral: true
                         });
                     }
-            
+
                     if (!config.allowed_roles || !Array.isArray(config.allowed_roles)) {
                         return interaction.reply({
                             content: 'Invalid ticket configuration! Allowed roles are not properly configured.',
                             ephemeral: true
                         });
                     }
-            
+
                     if (config.type === 'normal') {
                         await handleNormalTicket(interaction, config);
                     } else if (config.type === 'application') {
@@ -164,71 +163,92 @@ module.exports = async (client, interaction) => {
                 });
             }
             if (customId.startsWith('suggestion_')) {
-        const parts = customId.split('_');
-        const action = parts[1];
-        const message = interaction.message;
-        const embed = message.embeds[0];
-        
-        try {
-            // Get suggestion ID from footer
-            const footerText = embed.footer.text;
-            const suggestionId = parseInt(footerText.match(/ID: (\d+)/)[1]);
+                const parts = customId.split('_');
+                const action = parts[1];
+                const message = interaction.message;
+                const embed = message.embeds[0];
 
-            switch (action) {
-                case 'upvote':
-                case 'downvote': {
-                    // Handle voting
-                    const result = await toggleVote(suggestionId, interaction.user.id, action);
-                    const counts = await getVoteCounts(suggestionId);
-                    
-                    // Get current components
-                    const components = message.components[0].components;
-                    
-                    // Update button labels
-                    components[0].setLabel(counts.upvotes.toString());    // Upvote button
-                    components[2].setLabel(counts.downvotes.toString());  // Downvote button
-                    
-                    // Update message with new counts
-                    await message.edit({
-                        embeds: [embed],
-                        components: [new ActionRowBuilder().addComponents(components)]
-                    });
-
-                    // Acknowledge the interaction
-                    await interaction.deferUpdate();
-                    break;
-                }
-                case 'thread': {
-                    // Get thread message count
-                    const thread = message.thread;
-                    if (thread) {
-                        const messageCount = (await thread.messages.fetch()).size - 1; // -1 to exclude the initial message
-                        
-                        // Update thread count in database
-                        await updateThreadCount(suggestionId, messageCount);
-                        
-                        // Update button label
-                        const components = message.components[0].components;
-                        components[1].setLabel(messageCount.toString());  // Thread counter button
-                        
-                        await message.edit({
-                            embeds: [embed],
-                            components: [new ActionRowBuilder().addComponents(components)]
+                try {
+                    // Check if embed and footer exist
+                    if (!embed || !embed.footer || !embed.footer.text) {
+                        console.error('Invalid embed structure:', embed);
+                        await interaction.reply({
+                            content: 'This suggestion appears to be invalid.',
+                            ephemeral: true
                         });
+                        return;
                     }
-                    
-                    await interaction.deferUpdate();
-                    break;
+
+                    // Get suggestion ID from footer
+                    const match = embed.footer.text.match(/ID: (\d+)/);
+                    if (!match) {
+                        console.error('Could not find suggestion ID in footer:', embed.footer.text);
+                        await interaction.reply({
+                            content: 'Could not find suggestion ID.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+
+                    const suggestionId = parseInt(match[1]);
+
+                    switch (action) {
+                        case 'upvote':
+                        case 'downvote': {
+                            // Handle voting
+                            const result = await toggleVote(suggestionId, interaction.user.id, action);
+                            const counts = await getVoteCounts(suggestionId);
+
+                            // Get current components
+                            const row = ActionRowBuilder.from(message.components[0]);
+                            const components = row.components;
+
+                            // Update button labels
+                            components[0].setLabel(counts.upvotes.toString());    // Upvote button
+                            components[2].setLabel(counts.downvotes.toString());  // Downvote button
+
+                            // Update message with new counts
+                            await message.edit({
+                                embeds: [embed],
+                                components: [row]
+                            });
+
+                            // Acknowledge the interaction
+                            await interaction.deferUpdate();
+                            break;
+                        }
+                        case 'thread': {
+                            // Get thread message count
+                            const thread = message.thread;
+                            if (thread) {
+                                const messageCount = (await thread.messages.fetch()).size - 1;
+
+                                // Update thread count in database
+                                await updateThreadCount(suggestionId, messageCount);
+
+                                // Update button label
+                                const row = ActionRowBuilder.from(message.components[0]);
+                                const components = row.components;
+                                components[1].setLabel(messageCount.toString());
+
+                                await message.edit({
+                                    embeds: [embed],
+                                    components: [row]
+                                });
+                            }
+
+                            await interaction.deferUpdate();
+                            break;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error handling suggestion button:', error);
+                    await interaction.reply({
+                        content: 'There was an error processing your interaction.',
+                        ephemeral: true
+                    });
                 }
             }
-        } catch (error) {
-            console.error('Error handling suggestion button:', error);
-            await interaction.reply({
-                content: 'There was an error processing your interaction.',
-                ephemeral: true
-            });
-        }
-    }
 
 
 
@@ -236,84 +256,84 @@ module.exports = async (client, interaction) => {
 
         // Handle Modal Submissions
         // In your modal submission handling section, modify this part:
-// In your modal submission handling section, modify this part:
-// Handle Modal Submissions
-if (interaction.isModalSubmit()) {
-    if (interaction.customId === 'close_ticket_modal') {
-        const reason = interaction.fields.getTextInputValue('close_reason');
-        await handleConfirmClose(interaction, reason);
-        return;
-    }
-
-    if (interaction.customId.startsWith('application_')) {
-        try {
-            const parts = interaction.customId.split('_');
-            const ticketId = parts.slice(1, -1).join('_');
-            const currentPage = parseInt(parts[parts.length - 1] || '1');
-            
-            const configPath = path.join(__dirname, '../../data/tickets', `${ticketId}.json`);
-            
-            if (!fs.existsSync(configPath)) {
-                return interaction.reply({
-                    content: 'Application configuration not found! Please try again.',
-                    ephemeral: true
-                });
+        // In your modal submission handling section, modify this part:
+        // Handle Modal Submissions
+        if (interaction.isModalSubmit()) {
+            if (interaction.customId === 'close_ticket_modal') {
+                const reason = interaction.fields.getTextInputValue('close_reason');
+                await handleConfirmClose(interaction, reason);
+                return;
             }
 
-            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-            
-            if (!config.questions || config.questions.length === 0) {
-                return interaction.reply({
-                    content: 'No questions found in the application configuration!',
-                    ephemeral: true
-                });
+            if (interaction.customId.startsWith('application_')) {
+                try {
+                    const parts = interaction.customId.split('_');
+                    const ticketId = parts.slice(1, -1).join('_');
+                    const currentPage = parseInt(parts[parts.length - 1] || '1');
+
+                    const configPath = path.join(__dirname, '../../data/tickets', `${ticketId}.json`);
+
+                    if (!fs.existsSync(configPath)) {
+                        return interaction.reply({
+                            content: 'Application configuration not found! Please try again.',
+                            ephemeral: true
+                        });
+                    }
+
+                    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+                    if (!config.questions || config.questions.length === 0) {
+                        return interaction.reply({
+                            content: 'No questions found in the application configuration!',
+                            ephemeral: true
+                        });
+                    }
+
+                    let userResponses = applicationResponses.get(interaction.user.id) || [];
+
+                    const formResponses = [];
+                    interaction.fields.fields.forEach((field) => {
+                        formResponses.push(field.value);
+                    });
+                    userResponses = [...userResponses, ...formResponses];
+
+                    const totalQuestions = config.questions.length;
+                    const questionsAnswered = userResponses.length;
+                    const remainingQuestions = totalQuestions - questionsAnswered;
+
+                    if (remainingQuestions > 0) {
+                        // Store current responses
+                        applicationResponses.set(interaction.user.id, userResponses);
+
+                        // Create continue button
+                        const continueButton = new ButtonBuilder()
+                            .setCustomId(`continue_application_${config.id}_${currentPage + 1}`)
+                            .setLabel('Continue Application')
+                            .setStyle(ButtonStyle.Primary);
+
+                        const row = new ActionRowBuilder().addComponents(continueButton);
+
+                        await interaction.reply({
+                            content: `Part ${currentPage} completed! Click the button below to continue with part ${currentPage + 1} of ${Math.ceil(totalQuestions / 5)}.`,
+                            components: [row],
+                            ephemeral: true
+                        });
+                    } else {
+                        // All questions answered, create the ticket
+                        await createApplicationTicket(interaction, config, userResponses);
+
+                        // Clear stored responses
+                        applicationResponses.delete(interaction.user.id);
+                    }
+                } catch (error) {
+                    console.error('Modal Submit Error:', error);
+                    await interaction.reply({
+                        content: 'There was an error processing your application. Please try again.',
+                        ephemeral: true
+                    });
+                }
             }
-
-            let userResponses = applicationResponses.get(interaction.user.id) || [];
-            
-            const formResponses = [];
-            interaction.fields.fields.forEach((field) => {
-                formResponses.push(field.value);
-            });
-            userResponses = [...userResponses, ...formResponses];
-            
-            const totalQuestions = config.questions.length;
-            const questionsAnswered = userResponses.length;
-            const remainingQuestions = totalQuestions - questionsAnswered;
-
-            if (remainingQuestions > 0) {
-                // Store current responses
-                applicationResponses.set(interaction.user.id, userResponses);
-                
-                // Create continue button
-                const continueButton = new ButtonBuilder()
-                    .setCustomId(`continue_application_${config.id}_${currentPage + 1}`)
-                    .setLabel('Continue Application')
-                    .setStyle(ButtonStyle.Primary);
-
-                const row = new ActionRowBuilder().addComponents(continueButton);
-
-                await interaction.reply({
-                    content: `Part ${currentPage} completed! Click the button below to continue with part ${currentPage + 1} of ${Math.ceil(totalQuestions / 5)}.`,
-                    components: [row],
-                    ephemeral: true
-                });
-            } else {
-                // All questions answered, create the ticket
-                await createApplicationTicket(interaction, config, userResponses);
-                
-                // Clear stored responses
-                applicationResponses.delete(interaction.user.id);
-            }
-        } catch (error) {
-            console.error('Modal Submit Error:', error);
-            await interaction.reply({
-                content: 'There was an error processing your application. Please try again.',
-                ephemeral: true
-            });
         }
-    }
-}
 
 
     } catch (error) {
@@ -387,7 +407,7 @@ async function handleApplicationTicket(interaction, config) {
 async function showApplicationForm(interaction, config, page, startIndex) {
     try {
         const questionsForThisPage = config.questions.slice(startIndex, startIndex + 5);
-        
+
         if (questionsForThisPage.length === 0) {
             throw new Error('No questions available for this page');
         }
@@ -398,14 +418,14 @@ async function showApplicationForm(interaction, config, page, startIndex) {
 
         questionsForThisPage.forEach((questionData, index) => {
             // Handle both old format (string) and new format (object)
-            const question = typeof questionData === 'string' 
-                ? { 
+            const question = typeof questionData === 'string'
+                ? {
                     question: questionData,
                     style: TextInputStyle.Paragraph,
                     placeholder: '',
                     minLength: 1,
                     maxLength: 1000
-                } 
+                }
                 : {
                     question: questionData.question,
                     style: questionData.style === 1 ? TextInputStyle.Short : TextInputStyle.Paragraph,
@@ -475,8 +495,8 @@ async function createApplicationTicket(interaction, config, responses) {
 
         config.questions.forEach((questionData, index) => {
             // Handle both old format (string) and new format (object)
-            const question = typeof questionData === 'string' 
-                ? questionData 
+            const question = typeof questionData === 'string'
+                ? questionData
                 : questionData.question;
 
             responseEmbed.addFields({
@@ -496,7 +516,7 @@ async function createApplicationTicket(interaction, config, responses) {
         if (config.followup_command) {
             console.log(`Attempting to execute slash command: ${config.followup_command}`);
             console.log('Available slash commands:', Array.from(interaction.client.slashCommands.keys()));
-            
+
             try {
                 const commandData = interaction.client.slashCommands.get(config.followup_command);
                 if (!commandData) {
@@ -505,7 +525,7 @@ async function createApplicationTicket(interaction, config, responses) {
                 }
 
                 console.log('Found command:', commandData.data.name);
-                
+
                 // Create a new interaction-like object for the command
                 const commandInteraction = {
                     ...interaction,
@@ -568,18 +588,18 @@ async function handleTicketClose(interaction) {
 async function handleConfirmClose(interaction, reason) {
     try {
         const channel = interaction.channel;
-        
+
         // Fetch all messages in the channel
         let allMessages = [];
         let lastId;
-        
+
         while (true) {
             const options = { limit: 100 };
             if (lastId) options.before = lastId;
-            
+
             const messages = await channel.messages.fetch(options);
             if (messages.size === 0) break;
-            
+
             allMessages = allMessages.concat(Array.from(messages.values()));
             lastId = messages.last().id;
         }
@@ -598,19 +618,19 @@ async function handleConfirmClose(interaction, reason) {
         for (const message of allMessages) {
             const timestamp = message.createdAt.toLocaleString();
             transcriptContent += `[${timestamp}] ${message.author.tag}:\n`;
-            
+
             // Add message content if it exists
             if (message.content) {
                 transcriptContent += `${message.content}\n`;
             }
-            
+
             // Add embed content if it exists
             if (message.embeds.length > 0) {
                 message.embeds.forEach(embed => {
                     transcriptContent += `\nEmbed Content:\n`;
                     if (embed.title) transcriptContent += `Title: ${embed.title}\n`;
                     if (embed.description) transcriptContent += `Description: ${embed.description}\n`;
-                    
+
                     // Add embed fields
                     if (embed.fields && embed.fields.length > 0) {
                         transcriptContent += `\nFields:\n`;
@@ -621,7 +641,7 @@ async function handleConfirmClose(interaction, reason) {
                     transcriptContent += `\n`;
                 });
             }
-            
+
             // Add attachments if any
             if (message.attachments.size > 0) {
                 transcriptContent += `Attachments:\n`;
@@ -629,20 +649,20 @@ async function handleConfirmClose(interaction, reason) {
                     transcriptContent += `- ${attachment.url}\n`;
                 });
             }
-            
+
             transcriptContent += `\n----------------------------------------\n`;
         }
 
         // Create and save transcript file
         const fileName = `${channel.name}-transcript.txt`;
         const transcriptPath = path.join(__dirname, '../../data/transcripts', fileName);
-        
+
         // Ensure directory exists
         const dir = path.dirname(transcriptPath);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
-        
+
         fs.writeFileSync(transcriptPath, transcriptContent, 'utf8');
 
         // Get the logs channel from config

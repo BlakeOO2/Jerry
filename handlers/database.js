@@ -129,17 +129,63 @@ suggestionDb.serialize(() => {
             FOREIGN KEY (suggestion_id) REFERENCES suggestions(id)
         )
     `);
+    suggestionDb.run(`
+        CREATE TABLE IF NOT EXISTS suggestion_channels (
+            guild_id TEXT,
+            channel_id TEXT,
+            PRIMARY KEY (guild_id, channel_id)
+        )
+    `);
 });
 
 // Add these functions to your exports
 async function createSuggestion(guildId, channelId, messageId, authorId, content) {
     return new Promise((resolve, reject) => {
-        suggestionDb.run(
-            'INSERT INTO suggestions (guildId, channelId, messageId, authorId, content) VALUES (?, ?, ?, ?, ?)',
+        suggestionDb.run(`
+            INSERT INTO suggestions (guildId, channelId, messageId, authorId, content, status)
+            VALUES (?, ?, ?, ?, ?, 'pending')`,
             [guildId, channelId, messageId, authorId, content],
             function(err) {
                 if (err) reject(err);
                 else resolve(this.lastID);
+            }
+        );
+    });
+}
+async function addSuggestionChannel(guildId, channelId) {
+    return new Promise((resolve, reject) => {
+        suggestionDb.run(
+            'INSERT OR REPLACE INTO suggestion_channels (guild_id, channel_id) VALUES (?, ?)',
+            [guildId, channelId],
+            function(err) {
+                if (err) reject(err);
+                else resolve(this.changes);
+            }
+        );
+    });
+}
+
+async function removeSuggestionChannel(guildId, channelId) {
+    return new Promise((resolve, reject) => {
+        suggestionDb.run(
+            'DELETE FROM suggestion_channels WHERE guild_id = ? AND channel_id = ?',
+            [guildId, channelId],
+            function(err) {
+                if (err) reject(err);
+                else resolve(this.changes);
+            }
+        );
+    });
+}
+
+async function isSuggestionChannel(guildId, channelId) {
+    return new Promise((resolve, reject) => {
+        suggestionDb.get(
+            'SELECT * FROM suggestion_channels WHERE guild_id = ? AND channel_id = ?',
+            [guildId, channelId],
+            (err, row) => {
+                if (err) reject(err);
+                else resolve(!!row);
             }
         );
     });
@@ -401,5 +447,8 @@ module.exports = {
     getSuggestion,
     toggleVote,
     getVoteCounts,
-    updateThreadCount
+    updateThreadCount,
+    addSuggestionChannel,
+    removeSuggestionChannel,
+    isSuggestionChannel
 };

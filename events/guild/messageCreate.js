@@ -1,18 +1,53 @@
 // events/guild/messageCreate.js
-const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
-const { createSuggestion } = require('../../handlers/database.js');
+const { 
+    createSuggestion, 
+    isSuggestionChannel,
+    updateThreadCount 
+} = require('../../handlers/database.js');
+const { ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 
 module.exports = async (client, message) => {
     // Ignore bot messages
     if (message.author.bot) return;
 
-    // Ignore messages in threads
-    if (message.channel.isThread()) return;
+    // If it's a thread message, update the counter
+    if (message.channel.isThread()) {
+        try {
+            // Get the parent message (the suggestion embed)
+            const parentMessage = await message.channel.fetchStarterMessage();
+            if (!parentMessage?.embeds[0]?.footer?.text) return;
 
-    // Check if message is in a suggestion channel
-    // You'll need to implement channel checking logic
-    // For example, checking channel name or storing suggestion channels in database
-    if (!message.channel.name.toLowerCase().includes('suggestion')) return;
+            // Get suggestion ID from footer
+            const match = parentMessage.embeds[0].footer.text.match(/ID: (\d+)/);
+            if (!match) return;
+
+            const suggestionId = parseInt(match[1]);
+
+            // Get thread message count (subtract 1 to exclude the initial message)
+            const messageCount = (await message.channel.messages.fetch()).size - 1;
+
+            // Update the button
+            const row = ActionRowBuilder.from(parentMessage.components[0]);
+            const threadButton = row.components[1]; // Middle button
+            threadButton.setLabel(messageCount.toString());
+
+            // Update the message
+            await parentMessage.edit({
+                embeds: [parentMessage.embeds[0]],
+                components: [row]
+            });
+
+            // Update in database
+            await updateThreadCount(suggestionId, messageCount);
+        } catch (error) {
+            console.error('Error updating thread message count:', error);
+        }
+        return; // Stop further processing if it's a thread message
+    }
+
+    // Check if it's a suggestion channel
+    const isSuggestion = await isSuggestionChannel(message.guild.id, message.channel.id);
+    if (!isSuggestion) return;
 
     try {
         // Create embed
