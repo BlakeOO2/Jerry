@@ -6,6 +6,16 @@ const {
     addSuggestionChannel,
     removeSuggestionChannel 
 } = require('../../handlers/database.js');
+const {
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
+    ActionRowBuilder,
+    EmbedBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    Collection
+} = require('discord.js');
 
 module.exports = {
     data: new SlashCommandBuilder()
