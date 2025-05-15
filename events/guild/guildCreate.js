@@ -1,3 +1,5 @@
+const { Collection } = require('discord.js');
+
 // events/guild/guildCreate.js
 module.exports = async (client, guild) => {
     try {

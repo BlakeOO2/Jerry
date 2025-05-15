@@ -1,5 +1,7 @@
 // events/guild/guildMemberAdd.js
 const { updateInvites, trackInvite } = require('../../handlers/database.js');
+const { Collection } = require('discord.js');
+
 
 module.exports = async (client, member) => {
     try {
