@@ -26,6 +26,13 @@ const suggestionDb = new sqlite3.Database(path.join(__dirname, '../database/sugg
         console.log('✅ Connected to suggestion database');
     }
 });
+const giveawayDb = new sqlite3.Database(path.join(__dirname, '../database/giveaways.sqlite'), (err) => {
+    if (err) {
+        console.error('❌ Error connecting to giveaway database:', err.message);
+    } else {
+        console.log('✅ Connected to giveaway database');
+    }
+});
 
 // Connect to invite database
 const inviteDb = new sqlite3.Database(inviteDbPath, (err) => {
@@ -62,6 +69,36 @@ snipeDb.serialize(() => {
             console.log('✅ Table "snipeData" is ready.');
         }
     });
+});
+// Initialize giveaway tables
+giveawayDb.serialize(() => {
+    giveawayDb.run(`
+        CREATE TABLE IF NOT EXISTS giveaways (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id TEXT,
+            channel_id TEXT,
+            message_id TEXT,
+            prize TEXT,
+            description TEXT,
+            winner_count INTEGER,
+            host_id TEXT,
+            end_time INTEGER,
+            requires_approval BOOLEAN,
+            approval_channel_id TEXT,
+            status TEXT DEFAULT 'active'
+        )
+    `);
+
+    giveawayDb.run(`
+        CREATE TABLE IF NOT EXISTS giveaway_entries (
+            giveaway_id INTEGER,
+            user_id TEXT,
+            entry_time INTEGER,
+            status TEXT DEFAULT 'pending',
+            FOREIGN KEY(giveaway_id) REFERENCES giveaways(id),
+            PRIMARY KEY(giveaway_id, user_id)
+        )
+    `);
 });
 
 // Create invite tables
@@ -426,6 +463,116 @@ async function resetInvites(userId) {
     });
 }
 
+// Giveaway database functions
+async function createGiveaway(data) {
+    return new Promise((resolve, reject) => {
+        giveawayDb.run(`
+            INSERT INTO giveaways (
+                guild_id, channel_id, message_id, prize, description,
+                winner_count, host_id, end_time, requires_approval, approval_channel_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+            data.guildId, data.channelId, data.messageId, data.prize,
+            data.description, data.winnerCount, data.hostId, data.endTime,
+            data.requiresApproval, data.approvalChannelId
+        ], function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
+}
+
+async function addGiveawayEntry(giveawayId, userId) {
+    return new Promise((resolve, reject) => {
+        giveawayDb.run(`
+            INSERT OR IGNORE INTO giveaway_entries (giveaway_id, user_id, entry_time)
+            VALUES (?, ?, ?)
+        `, [giveawayId, userId, Date.now()], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes > 0);
+        });
+    });
+}
+
+async function removeGiveawayEntry(giveawayId, userId) {
+    return new Promise((resolve, reject) => {
+        giveawayDb.run(`
+            DELETE FROM giveaway_entries
+            WHERE giveaway_id = ? AND user_id = ?
+        `, [giveawayId, userId], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes > 0);
+        });
+    });
+}
+
+async function getGiveaway(giveawayId) {
+    return new Promise((resolve, reject) => {
+        giveawayDb.get(`
+            SELECT * FROM giveaways WHERE id = ?
+        `, [giveawayId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+}
+
+async function getGiveawayEntries(giveawayId) {
+    return new Promise((resolve, reject) => {
+        giveawayDb.all(`
+            SELECT * FROM giveaway_entries WHERE giveaway_id = ?
+        `, [giveawayId], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+async function updateGiveawayStatus(giveawayId, status) {
+    return new Promise((resolve, reject) => {
+        giveawayDb.run(`
+            UPDATE giveaways SET status = ? WHERE id = ?
+        `, [status, giveawayId], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes > 0);
+        });
+    });
+}
+
+async function updateGiveawayMessage(giveawayId, messageId) {
+    return new Promise((resolve, reject) => {
+        giveawayDb.run(`
+            UPDATE giveaways 
+            SET message_id = ? 
+            WHERE id = ?
+        `, [messageId, giveawayId], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes > 0);
+        });
+    });
+}
+
+async function selectWinners(giveawayId, count) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const entries = await getGiveawayEntries(giveawayId);
+            const winners = [];
+            const entryPool = [...entries];
+
+            while (winners.length < count && entryPool.length > 0) {
+                const index = Math.floor(Math.random() * entryPool.length);
+                winners.push(entryPool[index].user_id);
+                entryPool.splice(index, 1);
+            }
+
+            resolve(winners);
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+
 
 
 // Export all functions
@@ -450,5 +597,14 @@ module.exports = {
     updateThreadCount,
     addSuggestionChannel,
     removeSuggestionChannel,
-    isSuggestionChannel
+    isSuggestionChannel,
+    createGiveaway,
+    addGiveawayEntry,
+    removeGiveawayEntry,
+    getGiveaway,
+    getGiveawayEntries,
+    updateGiveawayStatus,
+    updateGiveawayMessage,
+    selectWinners
+
 };

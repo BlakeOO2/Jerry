@@ -9,6 +9,7 @@ package.json
 database/snipeData.sqlite
 database/inviteTracker.sqlite
 database/suggestions.sqlite
+database/giveaways.sqlite
 
 node_modules/
 data/tickets/

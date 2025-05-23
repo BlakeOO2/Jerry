@@ -9,10 +9,20 @@ const {
     ButtonStyle,
     Collection
 } = require('discord.js');
+const { 
+    toggleVote, 
+    getVoteCounts, 
+    updateThreadCount,
+    getGiveaway,
+    addGiveawayEntry,
+    getGiveawayEntries,
+    updateGiveawayStatus,
+    selectWinners,
+    updateGiveawayMessage
+} = require('../../handlers/database.js');
 const fs = require('fs');
 const path = require('path');
 const discordTranscripts = require('discord-html-transcripts');
-const { toggleVote, getVoteCounts, updateThreadCount } = require('../../handlers/database.js');
 
 // Add this right after your require statements
 // Create necessary directories if they don't exist
@@ -84,6 +94,157 @@ module.exports = async (client, interaction) => {
         // Handle Button Interactions
         if (interaction.isButton()) {
             const customId = interaction.customId;
+
+            // Add this to your existing button handling in interactionCreate.js
+        if (customId.startsWith('giveaway_')) {
+    const parts = customId.split('_');
+    const action = parts[1];
+    const giveawayId = parts[2]; // This will now correctly get the giveaway ID
+
+    switch (action) {
+        case 'enter': {
+            try {
+                // Add console.log for debugging
+                console.log('Attempting to enter giveaway:', giveawayId);
+                
+                const giveaway = await getGiveaway(parseInt(giveawayId));
+                console.log('Found giveaway:', giveaway);
+
+                if (!giveaway || giveaway.status !== 'active') {
+                    await interaction.reply({
+                        content: 'This giveaway has ended!',
+                        ephemeral: true
+                    });
+                    return;
+                        }
+
+                        const success = await addGiveawayEntry(giveawayId, interaction.user.id);
+                        if (success) {
+                            // Update entry count in embed
+                            const entries = await getGiveawayEntries(giveawayId);
+                            const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+                            embed.data.fields[0].value = entries.length.toString();
+
+                            await interaction.message.edit({ embeds: [embed] });
+
+                            await interaction.reply({
+                                content: 'You have entered the giveaway! Good luck! 🍀',
+                                ephemeral: true
+                            });
+                        } else {
+                            await interaction.reply({
+                                content: 'You have already entered this giveaway!',
+                                ephemeral: true
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error handling giveaway entry:', error);
+                        await interaction.reply({
+                            content: 'There was an error entering the giveaway.',
+                            ephemeral: true
+                        });
+                    }
+                    break;
+                }
+
+                case 'approve': {
+                    if (!interaction.member.permissions.has('ManageGuild')) {
+                        await interaction.reply({
+                            content: 'You do not have permission to approve winners!',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+
+                    const giveaway = await getGiveaway(parseInt(giveawayId));
+                    if (!giveaway) {
+                        await interaction.reply({
+                            content: 'Giveaway not found!',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+
+                    const channel = await interaction.guild.channels.fetch(giveaway.channel_id);
+                    const entries = await getGiveawayEntries(giveawayId);
+                    const winners = entries.filter(entry => entry.status === 'pending')
+                        .map(entry => `<@${entry.user_id}>`);
+
+                    await channel.send(`🎉 Congratulations ${winners.join(', ')}! You won **${giveaway.prize}**!`);
+
+                    // Disable buttons
+                    const row = ActionRowBuilder.from(interaction.message.components[0]);
+                    row.components.forEach(button => button.setDisabled(true));
+
+                    await interaction.message.edit({ components: [row] });
+                    await interaction.reply({
+                        content: 'Winners have been approved and notified!',
+                        ephemeral: true
+                    });
+                    break;
+                }
+
+                case 'deny': {
+                    if (!interaction.member.permissions.has('ManageGuild')) {
+                        await interaction.reply({
+                            content: 'You do not have permission to deny winners!',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+
+                    // Update database to mark entries as denied
+                    await updateGiveawayStatus(parseInt(giveawayId), 'denied');
+
+                    // Disable buttons
+                    const row = ActionRowBuilder.from(interaction.message.components[0]);
+                    row.components.forEach(button => button.setDisabled(true));
+
+                    await interaction.message.edit({ components: [row] });
+                    await interaction.reply({
+                        content: 'Winners have been denied. Use /giveaway reroll to select new winners.',
+                        ephemeral: true
+                    });
+                    break;
+                }
+
+                case 'reroll': {
+                    if (!interaction.member.permissions.has('ManageGuild')) {
+                        await interaction.reply({
+                            content: 'You do not have permission to reroll winners!',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+
+                    const giveaway = await getGiveaway(parseInt(giveawayId));
+                    if (!giveaway) {
+                        await interaction.reply({
+                            content: 'Giveaway not found!',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+
+                    const winners = await selectWinners(giveawayId, giveaway.winner_count);
+                    const winnerMentions = winners.map(userId => `<@${userId}>`).join(', ');
+
+                    const channel = await interaction.guild.channels.fetch(giveaway.channel_id);
+                    await channel.send(`🎉 New winner${winners.length > 1 ? 's' : ''} for **${giveaway.prize}**: ${winnerMentions}!`);
+
+                    // Disable buttons
+                    const row = ActionRowBuilder.from(interaction.message.components[0]);
+                    row.components.forEach(button => button.setDisabled(true));
+
+                    await interaction.message.edit({ components: [row] });
+                    await interaction.reply({
+                        content: 'Winners have been rerolled and notified!',
+                        ephemeral: true
+                    });
+                    break;
+                }
+            }
+        }
 
             // Add this new condition
             if (customId.startsWith('continue_application_')) {
@@ -253,6 +414,9 @@ module.exports = async (client, interaction) => {
 
 
         }
+
+        
+
 
         // Handle Modal Submissions
         // In your modal submission handling section, modify this part:
