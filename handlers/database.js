@@ -17,6 +17,13 @@ const snipeDb = new sqlite3.Database(snipeDbPath, (err) => {
         console.log(`✅ Connected to snipe database: ${snipeDbPath}`);
     }
 });
+const ticketDb = new sqlite3.Database(path.join(__dirname, '../database/tickets.sqlite'), (err) => {
+    if (err) {
+        console.error('❌ Error connecting to ticket database:', err.message);
+    } else {
+        console.log('✅ Connected to ticket database');
+    }
+});
 
 const reactionRolesDb = new sqlite3.Database(path.join(__dirname, '../database/reactionRoles.sqlite'), (err) => {
     if (err) {
@@ -58,6 +65,14 @@ inviteDb.get("SELECT name FROM sqlite_master WHERE type='table' AND name='invite
     }
 });
 
+ticketDb.serialize(() => {
+    ticketDb.run(`
+        CREATE TABLE IF NOT EXISTS ticket_counters (
+            guild_id TEXT PRIMARY KEY,
+            counter INTEGER DEFAULT 0
+        )
+    `);
+});
 // Create snipe table
 snipeDb.serialize(() => {
     snipeDb.run(`
@@ -634,6 +649,27 @@ async function getGiveaway(giveawayId) {
         });
     });
 }
+async function getNextTicketNumber(guildId) {
+    return new Promise((resolve, reject) => {
+        ticketDb.serialize(() => {
+            // Insert or ignore in case this is the first ticket
+            ticketDb.run(
+                'INSERT OR IGNORE INTO ticket_counters (guild_id, counter) VALUES (?, 0)',
+                [guildId]
+            );
+
+            // Increment the counter and get the new value
+            ticketDb.get(
+                'UPDATE ticket_counters SET counter = counter + 1 WHERE guild_id = ? RETURNING counter',
+                [guildId],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row?.counter || 1);
+                }
+            );
+        });
+    });
+}
 
 async function getGiveawayEntries(giveawayId) {
     return new Promise((resolve, reject) => {
@@ -728,6 +764,7 @@ module.exports = {
     addReactionRole,
     removeReactionRole,
     getReactionRoles,
-    getReactionRoleMessage
+    getReactionRoleMessage,
+    getNextTicketNumber
 
 };

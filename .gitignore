@@ -11,6 +11,7 @@ database/inviteTracker.sqlite
 database/suggestions.sqlite
 database/giveaways.sqlite
 database/reactionRoles.sqlite
+database/tickets.sqlite
 
 node_modules/
 data/tickets/

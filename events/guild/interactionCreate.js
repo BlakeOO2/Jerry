@@ -18,7 +18,8 @@ const {
     getGiveawayEntries,
     updateGiveawayStatus,
     selectWinners,
-    updateGiveawayMessage
+    updateGiveawayMessage,
+    getNextTicketNumber
 } = require('../../handlers/database.js');
 const fs = require('fs');
 const path = require('path');
@@ -508,8 +509,17 @@ module.exports = async (client, interaction) => {
 
 
 async function handleNormalTicket(interaction, config) {
+    // Get the next ticket number
+    const ticketNumber = await getNextTicketNumber(interaction.guildId);
+    
+    // Format ticket number with leading zeros (e.g., 0001)
+    const formattedNumber = ticketNumber.toString().padStart(4, '0');
+    
+    // Create ticket name
+    const ticketName = `${config.id}-${interaction.user.username}-${formattedNumber}`;
+
     const channel = await interaction.guild.channels.create({
-        name: `ticket-${interaction.user.username}`,
+        name: ticketName,
         type: 0,
         parent: config.category_id,
         permissionOverwrites: [
@@ -626,8 +636,17 @@ async function showApplicationForm(interaction, config, page, startIndex) {
 
 async function createApplicationTicket(interaction, config, responses) {
     try {
+        // Get the next ticket number
+        const ticketNumber = await getNextTicketNumber(interaction.guildId);
+        
+        // Format ticket number with leading zeros
+        const formattedNumber = ticketNumber.toString().padStart(4, '0');
+        
+        // Create ticket name
+        const ticketName = `${config.id}-${interaction.user.username}-${formattedNumber}`;
+
         const channel = await interaction.guild.channels.create({
-            name: `application-${interaction.user.username}`,
+            name: ticketName,
             type: 0,
             parent: config.category_id,
             permissionOverwrites: [
