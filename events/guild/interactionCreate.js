@@ -505,6 +505,8 @@ module.exports = async (client, interaction) => {
     }
 };
 
+
+
 async function handleNormalTicket(interaction, config) {
     const channel = await interaction.guild.channels.create({
         name: `ticket-${interaction.user.username}`,

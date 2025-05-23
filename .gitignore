@@ -10,6 +10,7 @@ database/snipeData.sqlite
 database/inviteTracker.sqlite
 database/suggestions.sqlite
 database/giveaways.sqlite
+database/reactionRoles.sqlite
 
 node_modules/
 data/tickets/

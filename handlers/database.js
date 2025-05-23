@@ -18,6 +18,14 @@ const snipeDb = new sqlite3.Database(snipeDbPath, (err) => {
     }
 });
 
+const reactionRolesDb = new sqlite3.Database(path.join(__dirname, '../database/reactionRoles.sqlite'), (err) => {
+    if (err) {
+        console.error('❌ Error connecting to reaction roles database:', err.message);
+    } else {
+        console.log('✅ Connected to reaction roles database');
+    }
+});
+
 // Add this with your other database connections
 const suggestionDb = new sqlite3.Database(path.join(__dirname, '../database/suggestions.sqlite'), (err) => {
     if (err) {
@@ -70,6 +78,31 @@ snipeDb.serialize(() => {
         }
     });
 });
+
+reactionRolesDb.serialize(() => {
+    reactionRolesDb.run(`
+        CREATE TABLE IF NOT EXISTS reaction_role_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id TEXT,
+            channel_id TEXT,
+            discord_message_id TEXT UNIQUE,
+            title TEXT,
+            description TEXT
+        )
+    `);
+
+    reactionRolesDb.run(`
+        CREATE TABLE IF NOT EXISTS reaction_roles (
+            discord_message_id TEXT,
+            emoji TEXT,
+            role_id TEXT,
+            FOREIGN KEY(discord_message_id) REFERENCES reaction_role_messages(discord_message_id),
+            PRIMARY KEY(discord_message_id, emoji)
+        )
+    `);
+});
+
+
 // Initialize giveaway tables
 giveawayDb.serialize(() => {
     giveawayDb.run(`
@@ -176,6 +209,91 @@ suggestionDb.serialize(() => {
 });
 
 // Add these functions to your exports
+
+
+async function createReactionRoleMessage(guildId, channelId, messageId, title, description) {
+    return new Promise((resolve, reject) => {
+        reactionRolesDb.run(`
+            INSERT INTO reaction_role_messages (guild_id, channel_id, discord_message_id, title, description)
+            VALUES (?, ?, ?, ?, ?)
+        `, [guildId, channelId, messageId, title, description], function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
+}
+
+async function addReactionRole(messageId, emoji, roleId) {
+    return new Promise((resolve, reject) => {
+        console.log('Adding reaction role:', { messageId, emoji, roleId });
+        reactionRolesDb.run(`
+            INSERT OR REPLACE INTO reaction_roles (discord_message_id, emoji, role_id)
+            VALUES (?, ?, ?)
+        `, [messageId, emoji, roleId], function(err) {
+            if (err) {
+                console.error('Database error:', err);
+                reject(err);
+            } else {
+                console.log('Added reaction role successfully');
+                resolve(this.changes > 0);
+            }
+        });
+    });
+}
+
+async function getReactionRoleMessage(discordMessageId) {
+    return new Promise((resolve, reject) => {
+        reactionRolesDb.get(`
+            SELECT * FROM reaction_role_messages
+            WHERE discord_message_id = ?
+        `, [discordMessageId], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+}
+
+async function getReactionRoles(messageId) {
+    return new Promise((resolve, reject) => {
+        console.log('Getting roles for message:', messageId);
+        reactionRolesDb.all(`
+            SELECT * FROM reaction_roles
+            WHERE discord_message_id = ?
+        `, [messageId], (err, rows) => {
+            if (err) {
+                console.error('Database error:', err);
+                reject(err);
+            } else {
+                console.log('Found roles:', rows);
+                resolve(rows || []);
+            }
+        });
+    });
+}
+
+async function removeReactionRole(messageId, emoji) {
+    return new Promise((resolve, reject) => {
+        console.log('Removing reaction role:', { messageId, emoji });
+        reactionRolesDb.run(`
+            DELETE FROM reaction_roles 
+            WHERE discord_message_id = ? AND emoji = ?
+        `, [messageId, emoji], function(err) {
+            if (err) {
+                console.error('Database error:', err);
+                reject(err);
+            } else {
+                console.log('Removed reaction role successfully');
+                resolve(this.changes > 0);
+            }
+        });
+    });
+}
+
+
+
+
+
+
 async function createSuggestion(guildId, channelId, messageId, authorId, content) {
     return new Promise((resolve, reject) => {
         suggestionDb.run(`
@@ -605,6 +723,11 @@ module.exports = {
     getGiveawayEntries,
     updateGiveawayStatus,
     updateGiveawayMessage,
-    selectWinners
+    selectWinners,
+    createReactionRoleMessage,
+    addReactionRole,
+    removeReactionRole,
+    getReactionRoles,
+    getReactionRoleMessage
 
 };
