@@ -55,17 +55,17 @@ module.exports = {
 
         // Set timeout (in-memory, not persistent)
         setTimeout(async () => {
-            let sent = false;
+            // Always try both if destination is 'both'
             if (destination === 'dm' || destination === 'both') {
                 try {
                     await user.send(`⏰ Reminder: ${message}`);
-                    sent = true;
                 } catch (e) { /* ignore DM errors */ }
             }
-            if ((destination === 'channel' || (destination === 'both' && !sent))) {
+            if (destination === 'channel' || destination === 'both') {
                 try {
-                    const channel = await interaction.client.channels.fetch(interaction.channelId);
-                    if (channel) channel.send(`<@${user.id}> ⏰ Reminder: ${message}`);
+                    // Use interaction.channel for reliability
+                    const channel = interaction.channel || await interaction.client.channels.fetch(interaction.channelId);
+                    if (channel && channel.send) channel.send(`<@${user.id}> ⏰ Reminder: ${message}`);
                 } catch (e) { /* ignore channel errors */ }
             }
         }, ms);
