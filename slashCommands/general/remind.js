@@ -32,7 +32,7 @@ module.exports = {
 
         // Parse time string to ms
         function parseTime(str) {
-            const match = str.match(/(\\d+)([smhd])/i);
+            const match = str.match(/(\d+)([smhd])/i);
             if (!match) return null;
             const num = parseInt(match[1]);
             const unit = match[2].toLowerCase();
