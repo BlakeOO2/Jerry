@@ -223,9 +223,77 @@ suggestionDb.serialize(() => {
     `);
 });
 
-// Add these functions to your exports
+// Reminders database
+const remindersDb = new sqlite3.Database(path.join(__dirname, '../database/reminders.sqlite'), (err) => {
+    if (err) {
+        console.error('❌ Error connecting to reminders database:', err.message);
+    } else {
+        console.log('✅ Connected to reminders database');
+    }
+});
 
+remindersDb.serialize(() => {
+    remindersDb.run(`
+        CREATE TABLE IF NOT EXISTS reminders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            userId TEXT NOT NULL,
+            message TEXT NOT NULL,
+            remindAt INTEGER NOT NULL,
+            channelId TEXT,
+            createdAt INTEGER NOT NULL
+        )
+    `, (err) => {
+        if (err) {
+            console.error('❌ Error creating reminders table:', err.message);
+        } else {
+            console.log('✅ Table "reminders" is ready.');
+        }
+    });
+});
 
+// Reminder functions
+async function createReminder(userId, message, remindAt, channelId) {
+    return new Promise((resolve, reject) => {
+        remindersDb.run(`
+            INSERT INTO reminders (userId, message, remindAt, channelId, createdAt)
+            VALUES (?, ?, ?, ?, ?)
+        `, [userId, message, remindAt, channelId, Date.now()], function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
+}
+
+async function getDueReminders(until) {
+    return new Promise((resolve, reject) => {
+        remindersDb.all(`
+            SELECT * FROM reminders WHERE remindAt <= ?
+        `, [until], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+async function deleteReminder(id) {
+    return new Promise((resolve, reject) => {
+        remindersDb.run(`DELETE FROM reminders WHERE id = ?`, [id], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes > 0);
+        });
+    });
+}
+
+async function getUserReminders(userId) {
+    return new Promise((resolve, reject) => {
+        remindersDb.all(`SELECT * FROM reminders WHERE userId = ? ORDER BY remindAt ASC`, [userId], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+// Add this with your other database functions
 async function createReactionRoleMessage(guildId, channelId, messageId, title, description) {
     return new Promise((resolve, reject) => {
         reactionRolesDb.run(`
@@ -765,6 +833,10 @@ module.exports = {
     removeReactionRole,
     getReactionRoles,
     getReactionRoleMessage,
-    getNextTicketNumber
-
+    getNextTicketNumber,
+    // Reminders exports
+    createReminder,
+    getDueReminders,
+    deleteReminder,
+    getUserReminders
 };
