@@ -794,8 +794,172 @@ async function selectWinners(giveawayId, count) {
     });
 }
 
+// Bugs database
+const bugsDb = new sqlite3.Database(path.join(__dirname, '../database/bugs.sqlite'), (err) => {
+    if (err) {
+        console.error('❌ Error connecting to bugs database:', err.message);
+    } else {
+        console.log('✅ Connected to bugs database');
+    }
+});
 
+bugsDb.serialize(() => {
+    bugsDb.run(`
+        CREATE TABLE IF NOT EXISTS bugs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            parent TEXT NOT NULL,
+            status TEXT NOT NULL,
+            description TEXT NOT NULL,
+            priority TEXT NOT NULL,
+            createdAt INTEGER NOT NULL
+        )
+    `, (err) => {
+        if (err) {
+            console.error('❌ Error creating bugs table:', err.message);
+        } else {
+            console.log('✅ Table "bugs" is ready.');
+        }
+    });
+});
 
+async function addBug(parent, status, description, priority) {
+    return new Promise((resolve, reject) => {
+        bugsDb.run(`
+            INSERT INTO bugs (parent, status, description, priority, createdAt)
+            VALUES (?, ?, ?, ?, ?)
+        `, [parent, status, description, priority, Date.now()], function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
+}
+
+async function getBugs({ parent, priority, status, showAll } = {}) {
+    return new Promise((resolve, reject) => {
+        let query = 'SELECT * FROM bugs WHERE 1=1';
+        const params = [];
+        if (parent) {
+            query += ' AND LOWER(parent) = LOWER(?)';
+            params.push(parent);
+        }
+        if (priority) {
+            query += ' AND LOWER(priority) = LOWER(?)';
+            params.push(priority);
+        }
+        if (status && status !== 'all') {
+            query += ' AND LOWER(status) = LOWER(?)';
+            params.push(status);
+        }
+        if (!showAll && (!status || status === 'all')) {
+            query += " AND LOWER(status) != 'fixed'";
+        }
+        query += ' ORDER BY createdAt DESC';
+        bugsDb.all(query, params, (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+// GitHub repo following database
+const githubDb = new sqlite3.Database(path.join(__dirname, '../database/github.sqlite'), (err) => {
+    if (err) {
+        console.error('❌ Error connecting to github database:', err.message);
+    } else {
+        console.log('✅ Connected to github database');
+    }
+});
+
+githubDb.serialize(() => {
+    githubDb.run(`
+        CREATE TABLE IF NOT EXISTS github_repos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            repo TEXT NOT NULL UNIQUE,
+            url TEXT NOT NULL
+        )
+    `);
+    githubDb.run(`
+        CREATE TABLE IF NOT EXISTS github_channels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            channelId TEXT NOT NULL,
+            repoId INTEGER NOT NULL,
+            enabled INTEGER DEFAULT 1,
+            FOREIGN KEY(repoId) REFERENCES github_repos(id)
+        )
+    `);
+});
+
+async function addGitRepo(repo, url) {
+    return new Promise((resolve, reject) => {
+        githubDb.run(`INSERT OR IGNORE INTO github_repos (repo, url) VALUES (?, ?)`, [repo, url], function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
+}
+
+async function removeGitRepo(repo) {
+    return new Promise((resolve, reject) => {
+        githubDb.run(`DELETE FROM github_repos WHERE repo = ?`, [repo], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes > 0);
+        });
+    });
+}
+
+async function listGitRepos() {
+    return new Promise((resolve, reject) => {
+        githubDb.all(`SELECT * FROM github_repos`, [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+async function subscribeChannelToRepo(channelId, repo) {
+    return new Promise((resolve, reject) => {
+        githubDb.get(`SELECT id FROM github_repos WHERE repo = ?`, [repo], (err, row) => {
+            if (err) return reject(err);
+            if (!row) return reject(new Error('Repo not found'));
+            githubDb.run(`INSERT OR IGNORE INTO github_channels (channelId, repoId, enabled) VALUES (?, ?, 1)`, [channelId, row.id], function(err2) {
+                if (err2) reject(err2);
+                else resolve(this.lastID);
+            });
+        });
+    });
+}
+
+async function toggleGitUpdates(channelId, repo) {
+    return new Promise((resolve, reject) => {
+        githubDb.get(`SELECT id FROM github_repos WHERE repo = ?`, [repo], (err, row) => {
+            if (err) return reject(err);
+            if (!row) return reject(new Error('Repo not found'));
+            githubDb.get(`SELECT enabled FROM github_channels WHERE channelId = ? AND repoId = ?`, [channelId, row.id], (err2, sub) => {
+                if (err2) return reject(err2);
+                if (!sub) return reject(new Error('Subscription not found'));
+                const newState = sub.enabled ? 0 : 1;
+                githubDb.run(`UPDATE github_channels SET enabled = ? WHERE channelId = ? AND repoId = ?`, [newState, channelId, row.id], function(err3) {
+                    if (err3) reject(err3);
+                    else resolve(newState);
+                });
+            });
+        });
+    });
+}
+
+async function listChannelSubscriptions(channelId) {
+    return new Promise((resolve, reject) => {
+        githubDb.all(`
+            SELECT r.repo, r.url, c.enabled
+            FROM github_channels c
+            JOIN github_repos r ON c.repoId = r.id
+            WHERE c.channelId = ?
+        `, [channelId], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
 
 // Export all functions
 module.exports = {
@@ -834,9 +998,18 @@ module.exports = {
     getReactionRoles,
     getReactionRoleMessage,
     getNextTicketNumber,
-    // Reminders exports
     createReminder,
     getDueReminders,
     deleteReminder,
-    getUserReminders
+    getUserReminders,
+    // Bugs exports
+    addBug,
+    getBugs,
+    // GitHub repo following exports
+    addGitRepo,
+    removeGitRepo,
+    listGitRepos,
+    subscribeChannelToRepo,
+    toggleGitUpdates,
+    listChannelSubscriptions
 };
