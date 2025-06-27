@@ -813,13 +813,16 @@ bugsDb.serialize(() => {
             priority TEXT NOT NULL,
             createdAt INTEGER NOT NULL
         )
-    `, (err) => {
-        if (err) {
-            console.error('❌ Error creating bugs table:', err.message);
-        } else {
-            console.log('✅ Table "bugs" is ready.');
-        }
-    });
+    `);
+    bugsDb.run(`
+        CREATE TABLE IF NOT EXISTS bug_notes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            bug_id INTEGER NOT NULL,
+            note TEXT NOT NULL,
+            createdAt INTEGER NOT NULL,
+            FOREIGN KEY(bug_id) REFERENCES bugs(id)
+        )
+    `);
 });
 
 async function addBug(parent, status, description, priority) {
@@ -857,6 +860,42 @@ async function getBugs({ parent, priority, status, showAll } = {}) {
         bugsDb.all(query, params, (err, rows) => {
             if (err) reject(err);
             else resolve(rows);
+        });
+    });
+}
+
+async function updateBugStatus(id, status) {
+    return new Promise((resolve, reject) => {
+        bugsDb.run(`UPDATE bugs SET status = ? WHERE id = ?`, [status, id], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes > 0);
+        });
+    });
+}
+
+async function addBugNote(bugId, note) {
+    return new Promise((resolve, reject) => {
+        bugsDb.run(`INSERT INTO bug_notes (bug_id, note, createdAt) VALUES (?, ?, ?)`, [bugId, note, Date.now()], function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
+}
+
+async function getBugNotes(bugId) {
+    return new Promise((resolve, reject) => {
+        bugsDb.all(`SELECT note FROM bug_notes WHERE bug_id = ? ORDER BY createdAt ASC`, [bugId], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+        });
+    });
+}
+
+async function getBugById(id) {
+    return new Promise((resolve, reject) => {
+        bugsDb.get(`SELECT * FROM bugs WHERE id = ?`, [id], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
         });
     });
 }
@@ -1005,6 +1044,10 @@ module.exports = {
     // Bugs exports
     addBug,
     getBugs,
+    updateBugStatus,
+    addBugNote,
+    getBugNotes,
+    getBugById,
     // GitHub repo following exports
     addGitRepo,
     removeGitRepo,
