@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const configPath = path.join(__dirname, '../config/automod.json');
+const configPath = path.join(__dirname, '../../config/automod.json');
 const OWNER_ID = '479720473941245962';
 
 function loadConfig() {
