@@ -171,7 +171,7 @@ module.exports = {
                 const prettyGroup = grouped[group][0].parent;
                 let value = '';
                 for (const bug of grouped[group]) {
-                    value += `#${bug.id}: ${bug.description}\nPriority: **${bug.priority}**`;
+                    value += `#${bug.id}: ${bug.description}\n**Status:** ${bug.status}\nPriority: **${bug.priority}**`;
                     const notes = await getBugNotes(bug.id);
                     if (notes.length) {
                         value += `\n_Last note: ${notes[notes.length - 1].note}_`;
