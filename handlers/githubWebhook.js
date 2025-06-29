@@ -5,7 +5,7 @@ const { listChannelSubscriptions } = require('./database');
 const { EmbedBuilder } = require('discord.js');
 
 // You must call this with your Discord client instance after login
-function startGitHubWebhookServer(client, port = 3001) {
+function startGitHubWebhookServer(client, port = 5028) {
   const app = express();
   app.use(bodyParser.json());
 
