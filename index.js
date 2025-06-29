@@ -3,6 +3,7 @@ const colors = require("colors");
 const fs = require("fs");
 const { Collection, GatewayIntentBits } = require("discord.js");
 const db = require('./handlers/database.js');
+const { startGitHubWebhookServer } = require('./handlers/githubWebhook');
 
 const client = new Discord.Client({
   intents: [
@@ -29,6 +30,8 @@ client.slashCommands = new Collection();
 
 client.once("ready", async () => {
   console.log(`${client.user.tag} is online!`);
+  // Start GitHub webhook server
+  startGitHubWebhookServer(client, 3001); // You can change the port if needed
   
   // Initialize invite cache for all guilds
   client.guilds.cache.forEach(async (guild) => {

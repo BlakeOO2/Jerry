@@ -6,6 +6,7 @@ const config = require("../../botconfig/config.json"); //loading config file wit
 const ee = require("../../botconfig/embed.json"); //Loading all embed settings like color footertext and icon ...
 const Discord = require("discord.js"); //this is the official discord.js wrapper for the Discord Api, which we use!
 const { escapeRegex} = require("../../handlers/functions"); //Loading all needed functions
+const automod = require('../../handlers/automod');
 //here the event starts
 module.exports = async (client, message) => {
   try {
@@ -17,6 +18,11 @@ module.exports = async (client, message) => {
     if (message.channel.partial) await message.channel.fetch();
     //if the message is on partial fetch it
     if (message.partial) await message.fetch();
+
+    // === AUTOMOD CHECK ===
+    await automod(client, message);
+    // =====================
+
     //get the current prefix from the botconfig/config.json
     let prefix = config.prefix
     //the prefix can be a Mention of the Bot / The defined Prefix of the Bot

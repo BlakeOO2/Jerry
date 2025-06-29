@@ -1,0 +1,10 @@
+{
+  "whitelistedLinks": ["youtube.com", "youtu.be", "tiktok.com"],
+  "filteredWords": ["badword1", "badword2"],
+  "spam": {
+    "interval": 5000,
+    "maxMessages": 5,
+    "timeoutSeconds": 3600,
+    "alertChannelId": "1376937887664443432"
+  }
+}
